@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id                     String    @id @default(cuid())
+  customerId             String    @unique
+  name                   String
+  email                  String?
+  phone                  String?
+  segment                String?
+  lifetimeValue          Float     @default(0)
+  communicationPreference String   @default("EMAIL")
+  optedOut               Boolean   @default(false)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  payments   Payment[]
+  recoveries Recovery[]
+
+  @@index([customerId])
+  @@index([optedOut])
+}
+
+model Payment {
+  id                String    @id @default(cuid())
+  transactionId     String    @unique
+  customer          Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerId        String?
+  amount            Float
+  status            String    @default("INITIATED")
+  failureReason     String?
+  paymentMethod     String?   @default("CARD")
+  recoverability    String?
+  retryCount        Int       @default(0)
+  maxRetries        Int       @default(3)
+  recovered         Boolean   @default(false)
+  recoveredAmount   Float     @default(0)
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  recoveries  Recovery[]
+  auditEvents AuditEvent[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([failureReason])
+}
+
+model Recovery {
+  id                   String    @id @default(cuid())
+  recoveryId           String    @unique @default(cuid())
+  payment              Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  paymentId            String
+  customer             Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerId           String?
+  diagnosis            String?
+  recoveryProbability  Float?
+  confidence           Float?
+  expectedRecoveryValue Float?
+  recommendedAction    String?
+  actualAction         String?
+  status               String    @default("PENDING")
+  recoveredAmount      Float     @default(0)
+  retryCount           Int       @default(0)
+  reason               String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([paymentId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model AuditEvent {
+  id          String    @id @default(cuid())
+  eventId     String    @unique @default(cuid())
+  payment     Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  paymentId   String
+  eventType   String
+  description String?
+  metadata    String?   // JSON as string
+  agent       String?
+  action      String?
+  reason      String?
+  result      String?
+  timestamp   DateTime  @default(now())
+
+  @@index([paymentId])
+  @@index([eventType])
+}
